@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/StudentPerformanceDashboard.Server/StudentPerformanceDashboard.Server.csproj
+/StudentPerformanceDashboard.Server/Data/train.csv
+/StudentPerformanceDashboard.Server/Data/test.csv

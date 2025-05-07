@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<PropertyGroup>
+		<TargetFramework>net8.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<SpaRoot>..\studentperformancedashboard.client</SpaRoot>
+		<SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
+		<SpaProxyServerUrl>https://localhost:61285</SpaProxyServerUrl>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Add these EF Core packages -->
+		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.*" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.*" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.*" />
+
+		
+	</ItemGroup>
+	
+	<ItemGroup>
+		<!-- Core ML.NET Packages -->
+		<PackageReference Include="Microsoft.ML" Version="2.0.1" />
+		<PackageReference Include="Microsoft.ML.DataView" Version="2.0.1" />
+
+		<!-- For CSV/JSON Data Handling -->
+		<PackageReference Include="Microsoft.ML.CpuMath" Version="2.0.1" />
+		<PackageReference Include="Microsoft.Data.Analysis" Version="0.20.0" />
+
+		<!-- For ASP.NET Core Integration -->
+		<PackageReference Include="Microsoft.Extensions.ML" Version="2.0.1" />
+
+		<!-- For Dependency Injection -->
+		<PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+	</ItemGroup>
+	<ItemGroup>
+  <None Update="Data\train.csv">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+  <None Update="Data\test.csv">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </None>
+</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\studentperformancedashboard.client\studentperformancedashboard.client.esproj">
+			<ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+		</ProjectReference>
+	</ItemGroup>
+
+</Project>
