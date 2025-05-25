@@ -1092,73 +1092,110 @@ const StudentDashboard = () => {
                         </div>
                     )}
                     {activeTab === "Test" && (
-                        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-6">
-                            <h2 className="text-xl font-semibold mb-4 text-gray-800">Predict Target using LightGBM</h2>
+                        <div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-xl shadow-lg border border-gray-100 mt-8">
+                            <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2 border-gray-200">
+                                Predict Target using LightGBM
+                                <span className="block text-sm font-normal text-gray-500 mt-1">Enter student data to predict performance</span>
+                            </h2>
 
-                            <form onSubmit={handleSubmit} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <InputField
                                         label="Studiengebühren Aktuell"
                                         name="studiengebuehrenAktuell"
                                         value={formData.studiengebuehrenAktuell}
                                         onChange={handleChange}
+                                        className="bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
                                     />
                                     <InputField
                                         label="Scholarship Holder (0 or 1)"
                                         name="scholarshipHolder"
                                         value={formData.scholarshipHolder}
                                         onChange={handleChange}
+                                        className="bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
                                     />
                                     <InputField
                                         label="Immatrikulationsalter"
                                         name="immatrikulationsalter"
                                         value={formData.immatrikulationsalter}
                                         onChange={handleChange}
+                                        className="bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
                                     />
                                     <InputField
                                         label="Bestandene Lehrveranstaltungen 1st"
                                         name="bestandene1"
                                         value={formData.bestandene1}
                                         onChange={handleChange}
+                                        className="bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
                                     />
                                     <InputField
                                         label="Bestandene Lehrveranstaltungen 2st"
                                         name="bestandene2"
                                         value={formData.bestandene2}
                                         onChange={handleChange}
+                                        className="bg-gray-50 border border-gray-200 focus:ring-2 focus:ring-blue-200 rounded-lg transition-all"
                                     />
                                 </div>
 
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className={`mt-4 px-4 py-2 ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md shadow`}
+                                    className={`mt-6 w-full py-3 px-6 rounded-xl shadow-md transition-all flex items-center justify-center ${loading
+                                            ? 'bg-blue-400 cursor-not-allowed'
+                                            : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-medium'
+                                        }`}
                                 >
                                     {loading ? (
-                                        <span className="flex items-center justify-center">
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <>
+                                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
                                             Predicting...
-                                        </span>
-                                    ) : 'Predict'}
+                                        </>
+                                    ) : (
+                                        'Predict Now'
+                                    )}
                                 </button>
                             </form>
 
                             {error && (
-                                <div className="mt-4 p-4 bg-red-100 text-red-800 rounded-md shadow-inner">
-                                    <strong>Error:</strong> {error}
+                                <div className="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
+                                    <div className="flex items-center">
+                                        <svg className="h-5 w-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                        </svg>
+                                        <h3 className="text-red-800 font-medium">Prediction Error</h3>
+                                    </div>
+                                    <p className="mt-1 text-red-700">{error}</p>
                                 </div>
                             )}
 
                             {prediction && (
-                                <div className="mt-4 p-4 bg-green-100 text-green-800 rounded-md shadow-inner">
-                                    <h3 className="font-semibold text-lg mb-2">Prediction Results</h3>
-                                    <p><strong>Target Class:</strong> {prediction}</p>
-                                    {probability && (
-                                        <p><strong>Confidence:</strong> {(probability * 100).toFixed(1)}%</p>
-                                    )}
+                                <div className="mt-6 p-6 bg-green-50 border-l-4 border-green-500 rounded-r-lg">
+                                    <div className="flex items-center mb-3">
+                                        <svg className="h-6 w-6 text-green-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                        <h3 className="text-green-800 text-lg font-semibold">Prediction Successful</h3>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <p className="text-gray-800">
+                                            <span className="font-medium">Target Class:</span>
+                                            <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded-md text-sm font-medium">
+                                                {prediction}
+                                            </span>
+                                        </p>
+                                        {probability && (
+                                            <p className="text-gray-800">
+                                                <span className="font-medium">Confidence:</span>
+                                                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
+                                                    {(probability * 100).toFixed(1)}%
+                                                </span>
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>
