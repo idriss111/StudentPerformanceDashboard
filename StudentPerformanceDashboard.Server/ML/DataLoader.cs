@@ -1,5 +1,8 @@
 ﻿using Microsoft.ML;
+using Microsoft.ML.Calibrators;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers;
+using Microsoft.ML.Trainers.LightGbm;
 using StudentPerformanceDashboard.Server.ML;
 using System;
 using System.Collections.Generic;
@@ -105,12 +108,16 @@ public class DataLoader
     }
 
     private Dictionary<string, NumericColumnStats> GetBasicNumericStats(IDataView data)
+
     {
         var stats = new Dictionary<string, NumericColumnStats>();
         foreach (var column in data.Schema.Where(c => c.Type == NumberDataViewType.Single))
         {
             var values = data.GetColumn<float>(column.Name).Where(v => !float.IsNaN(v)).ToArray();
             if (values.Length == 0) continue;
+            float median = values.Length % 2 == 0
+            ? (values[values.Length / 2 - 1] + values[values.Length / 2]) / 2.0f
+            : values[values.Length / 2];
 
             // Simple histogram with 5 bins
             var min = values.Min();
@@ -131,6 +138,7 @@ public class DataLoader
                 Min = min,
                 Max = max,
                 Mean = values.Average(),
+                Median = median,
                 Histogram = histogram, // Add this
                 MissingValues = data.GetColumn<float>(column.Name).Count(float.IsNaN)
             };
@@ -538,14 +546,15 @@ private double CalculateCramersV(int[,] contingencyTable)
 
 
 
-// Machine Learning Model Trainer
+
+// Machine Learning Models
 
 public class ModelTrainer
 {
     private readonly MLContext _mlContext;
     private readonly DataLoader _dataLoader;
 
-    // Store training result for later use
+    
     public ModelTrainingResult? TrainingResult { get; private set; }
 
     public ModelTrainer(DataLoader dataLoader)
@@ -554,6 +563,7 @@ public class ModelTrainer
         _dataLoader = dataLoader;
     }
 
+    // Train a Random Forest model
     public ModelTrainingResult TrainRandomForest()
     {
         var result = new ModelTrainingResult();
@@ -606,6 +616,168 @@ public class ModelTrainer
 
         return result;
     }
+
+    // Train a LightGBM model
+    public ModelTrainingResult TrainLightGbm()
+    {
+        var result = new ModelTrainingResult();
+
+        try
+        {
+            var trainData = _dataLoader.LoadDataAsIDataView();
+            var targetAnalysis = _dataLoader.LoadAndAnalyzeData().TargetVariableAnalysis;
+
+            if (targetAnalysis == null)
+            {
+                result.Errors.Add("Target variable analysis not available.");
+                return result;
+            }
+
+            var pipeline = _mlContext.Transforms
+             .Conversion.MapValueToKey(
+                 outputColumnName: "Target",  // Changed from "Label"
+                 inputColumnName: targetAnalysis.TargetColumn)
+             .Append(_mlContext.Transforms.Concatenate("Features", GetFeatureColumns(trainData)))
+             .Append(_mlContext.Transforms.NormalizeMinMax("Features"))
+             .AppendCacheCheckpoint(_mlContext);
+
+            var trainerOptions = new LightGbmMulticlassTrainer.Options
+            {
+                LabelColumnName = "Target",  // 👈 use the mapped key column
+                FeatureColumnName = "Features",
+                NumberOfLeaves = 31,
+                MinimumExampleCountPerLeaf = 20,
+                LearningRate = 0.1,
+                NumberOfIterations = 100,
+                Booster = new GradientBooster.Options { L2Regularization = 0.5 },
+                UseSoftmax = true
+            };
+
+            var trainingPipeline = pipeline
+                  .Append(_mlContext.MulticlassClassification.Trainers.LightGbm(trainerOptions))
+                  .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+
+            result.Model = trainingPipeline.Fit(trainData);
+            _mlContext.Model.Save(result.Model, trainData.Schema, "ML/lightgbm-model.zip");
+
+            var predictions = result.Model.Transform(trainData);
+            result.Metrics = _mlContext.MulticlassClassification.Evaluate(
+                predictions,
+                labelColumnName: "Target");
+
+            result.Success = true;
+        }
+        catch (Exception ex)
+        {
+            result.Errors.Add($"LightGBM training failed: {ex.Message}");
+        }
+
+        return result;
+    }
+
+
+    // Train a Support Vector Machine (SVM) model
+    public ModelTrainingResult TrainSvm()
+    {
+        var result = new ModelTrainingResult();
+
+        try
+        {
+            var trainData = _dataLoader.LoadDataAsIDataView();
+            var targetAnalysis = _dataLoader.LoadAndAnalyzeData().TargetVariableAnalysis;
+
+            if (targetAnalysis == null)
+            {
+                result.Errors.Add("Target variable analysis not available.");
+                return result;
+            }
+
+            // 1. Data processing pipeline
+            var pipeline = _mlContext.Transforms
+                .Conversion.MapValueToKey("Label", targetAnalysis.TargetColumn)
+                .Append(_mlContext.Transforms.Concatenate("Features", GetFeatureColumns(trainData)))
+                .Append(_mlContext.Transforms.NormalizeMinMax("Features"))
+                .AppendCacheCheckpoint(_mlContext);
+
+            // 2. Define the SVM trainer wrapped in OneVersusAll
+            var svmTrainer = _mlContext.MulticlassClassification.Trainers
+                .OneVersusAll(_mlContext.BinaryClassification.Trainers.LinearSvm(new Microsoft.ML.Trainers.LinearSvmTrainer.Options
+                {
+                    LabelColumnName = "Label",
+                    FeatureColumnName = "Features",
+                    NumberOfIterations = 100,
+                }));
+
+            var trainingPipeline = pipeline
+                .Append(svmTrainer)
+                .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+
+            // 3. Train the model
+            result.Model = trainingPipeline.Fit(trainData);
+
+            // 4. Evaluate
+            var predictions = result.Model.Transform(trainData);
+            result.Metrics = _mlContext.MulticlassClassification.Evaluate(predictions, labelColumnName: "PredictedLabel");
+            result.Success = true;
+            TrainingResult = result;
+        }
+        catch (Exception ex)
+        {
+            result.Errors.Add($"SVM training failed: {ex.Message}");
+        }
+
+        return result;
+    }
+
+
+    // Train an SDCA Maximum Entropy model
+    public ModelTrainingResult TrainSdcaMaximumEntropy()
+    {
+        var result = new ModelTrainingResult();
+
+        try
+        {
+            var trainData = _dataLoader.LoadDataAsIDataView();
+            var targetAnalysis = _dataLoader.LoadAndAnalyzeData().TargetVariableAnalysis;
+
+            if (targetAnalysis == null)
+            {
+                result.Errors.Add("Target variable analysis not available.");
+                return result;
+            }
+
+            // 1. Preprocessing pipeline
+            var pipeline = _mlContext.Transforms
+                .Conversion.MapValueToKey("Label", targetAnalysis.TargetColumn)
+                .Append(_mlContext.Transforms.Concatenate("Features", GetFeatureColumns(trainData)))
+                .Append(_mlContext.Transforms.NormalizeMinMax("Features"))
+                .AppendCacheCheckpoint(_mlContext);
+
+            // 2. SDCA Maximum Entropy trainer
+            var trainer = _mlContext.MulticlassClassification.Trainers
+                .SdcaMaximumEntropy(labelColumnName: "Label", featureColumnName: "Features");
+
+            var trainingPipeline = pipeline
+                .Append(trainer)
+                .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+
+            // 3. Train model
+            result.Model = trainingPipeline.Fit(trainData);
+
+            // 4. Evaluate
+            var predictions = result.Model.Transform(trainData);
+            result.Metrics = _mlContext.MulticlassClassification.Evaluate(predictions, labelColumnName: "Label");
+            result.Success = true;
+            TrainingResult = result;
+        }
+        catch (Exception ex)
+        {
+            result.Errors.Add($"SDCA Maximum Entropy training failed: {ex.Message}");
+        }
+
+        return result;
+    }
+
 
     private string[] GetFeatureColumns(IDataView data)
     {

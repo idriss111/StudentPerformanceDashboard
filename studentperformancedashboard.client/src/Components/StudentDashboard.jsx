@@ -1,12 +1,18 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
 import {
     RiMenuLine,
     RiHome2Line,
     RiSearchLine,
-    RiArticleLine,
     RiNotificationLine,
-    RiBarChart2Line
+    RiBarChart2Line,
+    RiLineChartLine,
+    RiPieChartLine,
+    RiLinksLine,
+    RiNodeTree,
+    RiCpuLine,
+    RiBrainLine
 } from 'react-icons/ri';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -31,6 +37,99 @@ const StudentDashboard = () => {
     const [error, setError] = useState("");
     const [activeTab, setActiveTab] = useState("grades");
     const [trainingMetrics, setTrainingMetrics] = useState(null);
+    const [trainingMetricsLight, setTrainingMetricsLight] = useState(null);
+    const [trainingMetricsSvm, setTrainingMetricsSvm] = useState(null);
+    const [trainingMetricsSdca, setTrainingMetricsSdca] = useState(null);
+    const [prediction, setPrediction] = useState(null);
+    const [probability, setProbability] = useState(null);
+    const [formData, setFormData] = useState({
+        studiengebuehrenAktuell: '',
+        scholarshipHolder: '',
+        immatrikulationsalter: '',
+        bestandene1: '',
+        bestandene2: ''
+    });
+
+    // Input Feld for the prediction
+
+    const InputField = ({ label, name, value, onChange }) => (
+        <div className="flex flex-col">
+            <label htmlFor={name} className="mb-1 text-sm font-medium text-gray-700">
+                {label}
+            </label>
+            <input
+                type="text"
+                id={name}
+                name={name}
+                value={value}
+                onChange={onChange}
+                className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+            />
+        </div>
+    );
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({
+            ...formData,
+            [name]: value
+        });
+    };
+
+
+
+
+    // handle form submission
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError(null);
+        setPrediction(null);
+        setProbability(null);
+
+        try {
+            // Convert form data to numbers
+            const numericData = {
+                studiengebuehrenAktuell: parseFloat(formData.studiengebuehrenAktuell) || 0,
+                scholarshipHolder: parseFloat(formData.scholarshipHolder) || 0,
+                immatrikulationsalter: parseFloat(formData.immatrikulationsalter) || 0,
+                bestandene1: parseFloat(formData.bestandene1) || 0,
+                bestandene2: parseFloat(formData.bestandene2) || 0
+            };
+
+            console.log('Sending prediction request:', numericData);
+
+            // Send the prediction request to the backend
+            const response = await axios.post(
+                'http://localhost:5238/api/Prediction/lightgbm', // Must match backend route
+                numericData,
+                {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            console.log('Received prediction response:', response.data);
+
+            // Update the prediction state
+            if (response.data) {
+                setPrediction(response.data.target.toString());
+                setProbability(response.data.probability);
+            } else {
+                setError('Invalid response format from server');
+            }
+        }  catch (err) {
+            const errorMessage = err.response
+                ? err.response.data?.message || err.response.statusText
+                : err.message;
+            setError(`Prediction failed: ${errorMessage}`);
+        }
+         finally {
+            setLoading(false);
+        }
+    };
 
 
     // 3. Memoized calculations (must be before any conditional returns)
@@ -104,9 +203,11 @@ const StudentDashboard = () => {
                 setLoading(false);
             });
     }, []);
+
+    // Random Forest Model
     const trainModel = async () => {
         try {
-            const res = await fetch("http://localhost:5238/api/Students/ml/train", {
+            const res = await fetch("http://localhost:5238/api/Students/ml/train-randomforest", {
                 method: "POST",
             });
 
@@ -128,6 +229,88 @@ const StudentDashboard = () => {
             trainModel();
         }
     }, [activeTab]);
+
+    // LightGBM Model
+    const trainModelLight = async () => {
+        try {
+            const res = await fetch("http://localhost:5238/api/Students/ml/train-lightgbm", {
+                method: "POST",
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.metrics) {
+                setTrainingMetricsLight(data.metrics); // This is the key
+            } else {
+                console.error("Training error:", data.errors || "Unexpected response");
+                setTrainingMetricsLight(null);
+            }
+        } catch (error) {
+            console.error("Training failed", error);
+            setTrainingMetricsLight(null);
+        }
+    };
+    useEffect(() => {
+        if (activeTab === "LightGbm") {
+            trainModelLight();
+        }
+    }, [activeTab]);
+
+    // Support Vector Machine Model
+    const trainModelSvm = async () => {
+        try {
+            const res = await fetch("http://localhost:5238/api/Students/ml/train-svm", {
+                method: "POST",
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.metrics) {
+                setTrainingMetricsSvm(data.metrics); // This is the key
+            } else {
+                console.error("Training error:", data.errors || "Unexpected response");
+                setTrainingMetricsSvm(null);
+            }
+        } catch (error) {
+            console.error("Training failed", error);
+            setTrainingMetricsSvm(null);
+        }
+    };
+    useEffect(() => {
+        if (activeTab === "SVM") {
+            trainModelSvm();
+        }
+    }, [activeTab]);
+
+
+    // SDCA Maximum Entropy Model
+    const trainModelSdca = async () => {
+        try {
+            const res = await fetch("http://localhost:5238/api/Students/ml/train-sdca", {
+                method: "POST",
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.metrics) {
+                setTrainingMetricsSdca(data.metrics);
+            } else {
+                console.error("Training error:", data.errors || "Unexpected response");
+                setTrainingMetricsSdca(null);
+            }
+        } catch (error) {
+            console.error("Training failed", error);
+            setTrainingMetricsSdca(null);
+        }
+    };
+    useEffect(() => {
+        if (activeTab === "SDCA") {
+            trainModelSdca();
+        }
+    }, [activeTab]);
+
+
+
 
 
 
@@ -191,35 +374,49 @@ const StudentDashboard = () => {
     }
 
     return (
-        <div className="flex flex-col md:flex-row text-gray-800 font-inter min-h-screen bg-gray-50">
+        <div className="flex h-screen overflow-hidden bg-gray-50 font-inter text-gray-800">
             {/* Sidebar */}
-            <aside className={`w-64 h-full bg-[#00b1ac] text-white p-4 z-50 transition-transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} md:sticky md:top-0 md:h-screen`}>                <div className="mb-6">
+            <aside
+                className={`w-64 bg-[#00b1ac] text-white p-4 transition-transform duration-300 ease-in-out z-50 md:sticky md:top-0 h-screen overflow-y-auto ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+                    }`}
+            >
+                <div className="mb-6">
                     <img src="./FHAachen-logo2010.svg.png" alt="FH Aachen" className="h-12" />
                 </div>
-                <div className="text-white font-semibold mb-4">Hallo, {userData?.firstName}</div>
+                <div className="text-white font-semibold mb-4">
+                    Hallo, {userData?.firstName}
+                </div>
                 <nav className="space-y-2">
                     {[
                         { key: 'overview', icon: <RiHome2Line />, label: 'Dashboard' },
                         { key: 'grades', icon: <RiBarChart2Line />, label: 'Target grades' },
-                        { key: 'features', icon: <RiArticleLine />, label: 'Features' },
-                        { key: 'correlations', icon: <RiArticleLine />, label: 'Correlation Matrix' },
-                        { key: 'relationships', icon: <RiArticleLine />, label: 'Correlation Ratios' },
-                        { key: 'cramersv', icon: <RiArticleLine />, label: 'Cramers Assosiation' },
-                        { key: 'ML', icon: <RiArticleLine />, label: 'Random Forest Model' },
+                        { key: 'features', icon: <RiLineChartLine />, label: 'Features' },
+                        { key: 'correlations', icon: <RiNodeTree />, label: 'Correlation Matrix' },
+                        { key: 'relationships', icon: <RiLinksLine />, label: 'Correlation Ratios' },
+                        { key: 'cramersv', icon: <RiPieChartLine />, label: 'Cramers Association' },
+                        { key: 'ML', icon: <RiCpuLine />, label: 'Random Forest Model' },
+                        { key: 'LightGbm', icon: <RiBrainLine />, label: 'LightGBM Model' },
+                        { key: 'SVM', icon: <RiBrainLine />, label: 'Support Vector Machine Model' },
+                        { key: 'SDCA', icon: <RiBrainLine />, label: 'SDCA Maximum Entropy Model' },
+                        { key: 'Test', icon: <RiBrainLine />, label: 'Test Your Self' },
                     ].map(tab => (
                         <button
                             key={tab.key}
-                            className={`flex items-center w-full px-4 py-2 rounded-md hover:bg-[#003366] transition-colors ${activeTab === tab.key ? 'bg-[#003366]' : ''}`}
+                            className={`flex items-center w-full px-4 py-2 rounded-md hover:bg-[#005f66] transition-colors ${activeTab === tab.key ? 'bg-[#005f66]' : ''
+                                }`}
                             onClick={() => setActiveTab(tab.key)}
                         >
-                            <span className="mr-3">{tab.icon}</span>{tab.label}
+                            <span className="mr-3">{tab.icon}</span>
+                            {tab.label}
                         </button>
                     ))}
                 </nav>
             </aside>
 
+
             {/* Main Content */}
-            <div className="flex-1 flex flex-col ">
+            <div className="flex-1 flex flex-col overflow-auto">
+
                 {/* Top Navigation */}
                 <header className="flex justify-between items-center p-4 bg-white shadow sticky top-0 z-30 border-b border-gray-200">
                     <button className="text-xl text-[#00549e]" onClick={toggleSidebar}>
@@ -596,7 +793,9 @@ const StudentDashboard = () => {
 
                           </div>
                     )}
-                        {activeTab === "relationships" && (
+
+
+                    {activeTab === "relationships" && (
                         
                     
                         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
@@ -636,6 +835,8 @@ const StudentDashboard = () => {
                     
                     
                     )}
+
+
                     {activeTab === "cramersv" && (
                         <div className="space-y-8">
                             {/* Cramér's V Matrix */}
@@ -768,6 +969,8 @@ const StudentDashboard = () => {
                             
                         </div>
                     )}
+
+
                     {activeTab === "ML" && (
                         <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
                             <h2 className="text-xl font-semibold mb-4 text-gray-800">Random Forest Model Performance</h2>
@@ -791,11 +994,177 @@ const StudentDashboard = () => {
                                 </div>
                             ) : (
                                 <p className="text-sm text-gray-500 italic">
-                                        Training the Random Forest model... This will only take a few seconds...
+                                        Training the Random Forest model,this will only take a few seconds...
                                 </p>
                             )}
                         </div>
                     )}
+
+
+                    {activeTab === "LightGbm" && (
+                        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                            <h2 className="text-xl font-semibold mb-4 text-gray-800">Light GBM Model Performance</h2>
+
+                            {trainingMetricsLight ? (
+                                <div className="space-y-6">
+                                    {Object.entries(trainingMetricsLight).map(([metric, value]) => (
+                                        <div key={metric} className="mb-3">
+                                            <div className="flex justify-between mb-1">
+                                                <span className="capitalize">{metric}</span>
+                                                <span className="font-mono">{value.toFixed(3)}</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-blue-500 h-2 rounded-full"
+                                                    style={{ width: `${value * 100}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">
+                                    Training the Light GBM Model,this will only take a few seconds...
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+
+
+                    {activeTab === "SVM" && (
+                        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                            <h2 className="text-xl font-semibold mb-4 text-gray-800">Support Vector Machine Model Performance</h2>
+
+                            {trainingMetricsSvm ? (
+                                <div className="space-y-6">
+                                    {Object.entries(trainingMetricsSvm).map(([metric, value]) => (
+                                        <div key={metric} className="mb-3">
+                                            <div className="flex justify-between mb-1">
+                                                <span className="capitalize">{metric}</span>
+                                                <span className="font-mono">{value.toFixed(3)}</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-blue-500 h-2 rounded-full"
+                                                    style={{ width: `${Math.min(value * 100, 100)}%` }} // Ensure it doesn't exceed 100%
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">
+                                    Training the SVM Model, this will only take a few seconds...
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === "SDCA" && (
+                        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                            <h2 className="text-xl font-semibold mb-4 text-gray-800">
+                                SDCA Maximum Entropy Model Performance
+                            </h2>
+
+                            {trainingMetricsSdca ? (
+                                <div className="space-y-6">
+                                    {Object.entries(trainingMetricsSdca).map(([metric, value]) => (
+                                        <div key={metric} className="mb-3">
+                                            <div className="flex justify-between mb-1">
+                                                <span className="capitalize">{metric}</span>
+                                                <span className="font-mono">{value.toFixed(3)}</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-green-500 h-2 rounded-full"
+                                                    style={{ width: `${Math.min(value * 100, 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">
+                                    Training the SDCA Model, this will only take a few seconds...
+                                </p>
+                            )}
+                        </div>
+                    )}
+                    {activeTab === "Test" && (
+                        <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 mt-6">
+                            <h2 className="text-xl font-semibold mb-4 text-gray-800">Predict Target using LightGBM</h2>
+
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <InputField
+                                        label="Studiengebühren Aktuell"
+                                        name="studiengebuehrenAktuell"
+                                        value={formData.studiengebuehrenAktuell}
+                                        onChange={handleChange}
+                                    />
+                                    <InputField
+                                        label="Scholarship Holder (0 or 1)"
+                                        name="scholarshipHolder"
+                                        value={formData.scholarshipHolder}
+                                        onChange={handleChange}
+                                    />
+                                    <InputField
+                                        label="Immatrikulationsalter"
+                                        name="immatrikulationsalter"
+                                        value={formData.immatrikulationsalter}
+                                        onChange={handleChange}
+                                    />
+                                    <InputField
+                                        label="Bestandene Lehrveranstaltungen 1st"
+                                        name="bestandene1"
+                                        value={formData.bestandene1}
+                                        onChange={handleChange}
+                                    />
+                                    <InputField
+                                        label="Bestandene Lehrveranstaltungen 2st"
+                                        name="bestandene2"
+                                        value={formData.bestandene2}
+                                        onChange={handleChange}
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className={`mt-4 px-4 py-2 ${loading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded-md shadow`}
+                                >
+                                    {loading ? (
+                                        <span className="flex items-center justify-center">
+                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Predicting...
+                                        </span>
+                                    ) : 'Predict'}
+                                </button>
+                            </form>
+
+                            {error && (
+                                <div className="mt-4 p-4 bg-red-100 text-red-800 rounded-md shadow-inner">
+                                    <strong>Error:</strong> {error}
+                                </div>
+                            )}
+
+                            {prediction && (
+                                <div className="mt-4 p-4 bg-green-100 text-green-800 rounded-md shadow-inner">
+                                    <h3 className="font-semibold text-lg mb-2">Prediction Results</h3>
+                                    <p><strong>Target Class:</strong> {prediction}</p>
+                                    {probability && (
+                                        <p><strong>Confidence:</strong> {(probability * 100).toFixed(1)}%</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+
 
 
 

@@ -148,7 +148,7 @@ namespace StudentDashboard.Server.Controllers
 
 
 
-        [HttpPost("ml/train")]
+        [HttpPost("ml/train-randomforest")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult TrainModel()
@@ -174,6 +174,97 @@ namespace StudentDashboard.Server.Controllers
             {
                 Message = "Model trained successfully",
                 Metrics = metricsDto
+            });
+        }
+
+
+        [HttpPost("ml/train-lightgbm")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult TrainLightGbmModel()
+        {
+            var result = _modelTrainer.TrainLightGbm();
+
+            if (!result.Success)
+            {
+                return BadRequest(new { Errors = result.Errors });
+            }
+
+            var metricsDto = new ModelMetricsDto
+            {
+                MacroAccuracy = result.Metrics?.MacroAccuracy ?? 0,
+                MicroAccuracy = result.Metrics?.MicroAccuracy ?? 0,
+                LogLoss = result.Metrics?.LogLoss ?? 0,
+                LogLossReduction = result.Metrics?.LogLossReduction ?? 0,
+                TopKAccuracy = result.Metrics?.TopKAccuracy ?? 0,
+              
+            };
+
+            return Ok(new
+            {
+                Message = "LightGBM model trained successfully",
+                Metrics = metricsDto,
+                ModelType = "LightGBM"
+            });
+        }
+
+
+        [HttpPost("ml/train-svm")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult TrainSvmModel()
+        {
+            var result = _modelTrainer.TrainSvm();
+
+            if (!result.Success)
+            {
+                return BadRequest(new { Errors = result.Errors });
+            }
+
+            var metricsDto = new ModelMetricsDto
+            {
+                MacroAccuracy = result.Metrics?.MacroAccuracy ?? 0,
+                MicroAccuracy = result.Metrics?.MicroAccuracy ?? 0,
+                LogLoss = result.Metrics?.LogLoss ?? 0,
+                LogLossReduction = result.Metrics?.LogLossReduction ?? 0,
+                TopKAccuracy = result.Metrics?.TopKAccuracy ?? 0,
+            };
+
+            return Ok(new
+            {
+                Message = "SVM model trained successfully",
+                Metrics = metricsDto,
+                ModelType = "SVM"
+            });
+        }
+
+
+        [HttpPost("ml/train-sdca")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult TrainSdcaModel()
+        {
+            var result = _modelTrainer.TrainSdcaMaximumEntropy();
+
+            if (!result.Success)
+            {
+                return BadRequest(new { Errors = result.Errors });
+            }
+
+            var metricsDto = new ModelMetricsDto
+            {
+                MacroAccuracy = result.Metrics?.MacroAccuracy ?? 0,
+                MicroAccuracy = result.Metrics?.MicroAccuracy ?? 0,
+                LogLoss = result.Metrics?.LogLoss ?? 0,
+                LogLossReduction = result.Metrics?.LogLossReduction ?? 0,
+                TopKAccuracy = result.Metrics?.TopKAccuracy ?? 0,
+            };
+
+            return Ok(new
+            {
+                Message = "SDCA Maximum Entropy model trained successfully",
+                Metrics = metricsDto,
+                ModelType = "SDCA"
             });
         }
 

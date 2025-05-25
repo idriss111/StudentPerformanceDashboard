@@ -31,6 +31,7 @@ public class NumericColumnStats
     public float Min { get; set; }
     public float Max { get; set; }
     public float Mean { get; set; }
+    public float Median { get; set; }
     public int MissingValues { get; set; }
     public Dictionary<string, int> Histogram { get; set; } = new(); 
 }
